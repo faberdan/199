@@ -63,9 +63,13 @@ body.collapsed .navbtn span{display:none}
 .subbtn .num{min-width:21px;height:21px;flex:0 0 auto;padding:0 5px;border-radius:6px;font-style:normal;
   background:color-mix(in srgb,var(--cc) 15%,transparent);color:var(--cc);
   font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.subbtn .num.bright{background:var(--cc);color:#fff;box-shadow:0 0 12px color-mix(in srgb,var(--cc) 55%,transparent)}
 .subbtn:hover{background:var(--line2)}
 .subbtn.on{background:color-mix(in srgb,var(--cc) 11%,transparent);color:var(--cc);font-weight:600}
 .subbtn.on .num{background:var(--cc);color:#fff}
+/* dark-theme accents are light pastels, so solid chips need dark text */
+[data-theme="dark"] .subbtn .num.bright,
+[data-theme="dark"] .subbtn.on .num{color:#12121a}
 body.collapsed .subbtn{justify-content:center;padding:10px 0}
 body.collapsed .subbtn span{display:none}
 .navfoot{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding-top:10px}
@@ -534,10 +538,10 @@ const MILES = [
 /* ---- Chapters: end "" means "runs to the latest weigh-in" ---- */
 const CHAPS = [
   { n:"Goal set to first low",  s:"Descent",    a:"2025-10-12", b:"2026-03-01", c:"var(--c1)" },
+  { n:"Below 200",              s:"Below 200",  a:"2026-02-14", b:"2026-02-28", c:"var(--c6)", inset:true, bright:true },
   { n:"Surgery and recovery",   s:"Surgery",    a:"2026-03-01", b:"2026-04-27", c:"var(--c2)" },
   { n:"Mastermind to lacrosse", s:"Mastermind", a:"2026-04-27", b:"2026-06-03", c:"var(--c3)" },
   { n:"Lacrosse season",        s:"Lacrosse",   a:"2026-06-03", b:"",           c:"var(--c4)" },
-  { n:"Below 200",              s:"Below 200",  a:"2026-02-14", b:"2026-02-28", c:"var(--c6)", inset:true, chip:"199" },
   { n:"Run to September 30",    s:"The run",    a:"",           b:"2026-09-30", c:"var(--c5)", future:true }
 ];
 
@@ -789,13 +793,11 @@ iTo.onchange=()=>{ const t=clampDate(iTo.value||GOAL.date); setRange(t<FROM?t:FR
 
 /* ============================ sidebar chapter views ============================ */
 function chapNav(){
-  let seq=0;
   document.getElementById("chapnav").innerHTML =
-    CHAPS.filter(c=>!c.future).map(ch=>{
+    CHAPS.filter(c=>!c.future).map((ch,i)=>{
       const a=ch.a||LAST.d, b=ch.b||LAST.d;
-      if(!ch.inset) seq++;
       return `<button class="subbtn" data-a="${a}" data-b="${b}" style="--cc:${ch.c}">
-        <i class="num">${ch.chip||seq}</i><span>${fmt(a)} - ${fmt(b)}</span></button>`;
+        <i class="num${ch.bright?" bright":""}">${i+1}</i><span>${fmt(a)} - ${fmt(b)}</span></button>`;
     }).join("");
   document.querySelectorAll(".subbtn").forEach(el=>el.onclick=()=>{
     setRange(el.dataset.a, el.dataset.b, null);
