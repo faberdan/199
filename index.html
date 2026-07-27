@@ -56,6 +56,18 @@ body.collapsed .navtitle{display:none}
 .navbtn.on svg{opacity:1}
 body.collapsed .navbtn{justify-content:center;padding:12px 0}
 body.collapsed .navbtn span{display:none}
+.subnav{display:flex;flex-direction:column;gap:2px;margin:2px 0 8px}
+.subbtn{display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px 10px 15px;
+  border-radius:10px;color:var(--ink2);font-size:13px;font-weight:500;
+  white-space:nowrap;text-align:left;font-variant-numeric:tabular-nums}
+.subbtn .num{width:21px;height:21px;flex:0 0 21px;border-radius:6px;font-style:normal;
+  background:color-mix(in srgb,var(--cc) 15%,transparent);color:var(--cc);
+  font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.subbtn:hover{background:var(--line2)}
+.subbtn.on{background:color-mix(in srgb,var(--cc) 11%,transparent);color:var(--cc);font-weight:600}
+.subbtn.on .num{background:var(--cc);color:#fff}
+body.collapsed .subbtn{justify-content:center;padding:10px 0}
+body.collapsed .subbtn span{display:none}
 .navfoot{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding-top:10px}
 .main{flex:1;min-width:0;padding:26px 34px 70px}
 @media(max-width:820px){
@@ -65,6 +77,9 @@ body.collapsed .navbtn span{display:none}
   .navtop{width:100%;padding-bottom:8px}
   .navbtn{width:auto}
   .navbtn span{display:inline!important}
+  .subnav{flex-direction:row;flex-wrap:wrap;width:100%;margin:0}
+  .subbtn{width:auto;padding:9px 12px}
+  .subbtn span{display:inline!important}
   .navfoot{margin-top:0;flex-direction:row;width:100%}
   .main{padding:18px 16px 60px}
 }
@@ -181,6 +196,7 @@ tr:last-child td{border-bottom:none}
 
   <button class="navbtn on" data-go="chart"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Chart</span></button>
   <button class="navbtn" data-go="chapters"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg><span>Chapters</span></button>
+  <div class="subnav" id="chapnav"></div>
   <button class="navbtn" data-go="milestones"><svg viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 5h12l-2.5 3.5L17 12H5"/></svg><span>Milestones</span></button>
   <button class="navbtn" data-go="deadline"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/></svg><span>September 30</span></button>
   <button class="navbtn" data-go="data"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg><span>Data</span></button>
@@ -520,9 +536,9 @@ const MILES = [
 
 /* ---- Chapters: end "" means "runs to the latest weigh-in" ---- */
 const CHAPS = [
-  { n:"Goal set to first low",  s:"Descent",    a:"2025-10-12", b:"2026-02-27", c:"var(--c1)" },
-  { n:"Surgery and recovery",   s:"Surgery",    a:"2026-02-28", b:"2026-04-26", c:"var(--c2)" },
-  { n:"Mastermind to lacrosse", s:"Mastermind", a:"2026-04-27", b:"2026-06-02", c:"var(--c3)" },
+  { n:"Goal set to first low",  s:"Descent",    a:"2025-10-12", b:"2026-03-01", c:"var(--c1)" },
+  { n:"Surgery and recovery",   s:"Surgery",    a:"2026-03-01", b:"2026-04-27", c:"var(--c2)" },
+  { n:"Mastermind to lacrosse", s:"Mastermind", a:"2026-04-27", b:"2026-06-03", c:"var(--c3)" },
   { n:"Lacrosse season",        s:"Lacrosse",   a:"2026-06-03", b:"",           c:"var(--c4)" },
   { n:"Run to September 30",    s:"The run",    a:"",           b:"2026-09-30", c:"var(--c5)", future:true }
 ];
@@ -751,6 +767,7 @@ function setRange(f,t,preset){
   if(FROM>TO) TO=FROM;
   iFrom.value=FROM; iTo.value=TO;
   document.querySelectorAll("#preset button").forEach(b=>b.classList.toggle("on", b.dataset.p===preset));
+  syncChapNav();
   draw(); datatable();
 }
 document.querySelectorAll("#preset button").forEach(b=>b.onclick=()=>{
@@ -761,6 +778,25 @@ document.querySelectorAll("#preset button").forEach(b=>b.onclick=()=>{
 /* moving one end past the other drags that end along, it never swaps them */
 iFrom.onchange=()=>{ const f=clampDate(iFrom.value||GOAL.start); setRange(f, f>TO?f:TO, null); };
 iTo.onchange=()=>{ const t=clampDate(iTo.value||GOAL.date); setRange(t<FROM?t:FROM, t, null); };
+
+/* ============================ sidebar chapter views ============================ */
+function chapNav(){
+  document.getElementById("chapnav").innerHTML =
+    CHAPS.filter(c=>!c.future).map((ch,i)=>{
+      const a=ch.a||LAST.d, b=ch.b||LAST.d;
+      return `<button class="subbtn" data-a="${a}" data-b="${b}" style="--cc:${ch.c}">
+        <i class="num">${i+1}</i><span>${fmt(a)} - ${fmt(b)}</span></button>`;
+    }).join("");
+  document.querySelectorAll(".subbtn").forEach(el=>el.onclick=()=>{
+    setRange(el.dataset.a, el.dataset.b, null);
+    go("chart");
+  });
+  syncChapNav();
+}
+function syncChapNav(){
+  document.querySelectorAll(".subbtn").forEach(el=>
+    el.classList.toggle("on", el.dataset.a===FROM && el.dataset.b===TO));
+}
 
 /* ============================ top stats ============================ */
 function topStats(){
@@ -964,7 +1000,7 @@ document.querySelectorAll("#grain button").forEach(b=>b.onclick=()=>{
 iFrom.value=FROM; iTo.value=TO;
 setTheme(store.get("p199-theme","light"));
 if(store.get("p199-nav","0")==="1") document.body.classList.add("collapsed");
-topStats(); chapters(); milestones(); deadline(); datatable();
+chapNav(); topStats(); chapters(); milestones(); deadline(); datatable();
 const h0=location.hash.slice(1);
 go(document.getElementById("v-"+h0)?h0:"chart");
 window.addEventListener("resize",()=>{ if(document.getElementById("v-chart").classList.contains("on")) draw(); });
