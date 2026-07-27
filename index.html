@@ -218,6 +218,7 @@ tr:last-child td{border-bottom:none}
     <button class="tog on" id="tChap"><i class="swatch"></i>Chapters</button>
     <button class="tog on" id="tMile"><i class="swatch"></i>Milestones</button>
     <button class="tog on" id="tPace"><i class="swatch"></i>Pace to 200</button>
+    <button class="tog on" id="tTrend"><i class="swatch"></i>Trend</button>
   </div>
   <div class="range">
     <div class="seg" id="preset">
@@ -525,7 +526,8 @@ const MILES = [
   { d:"2025-10-12", n:"Goal Set",       c:"var(--c1)" },
   { d:"2026-03-04", n:"Kailey Surgery", c:"var(--c2)" },
   { d:"2026-04-27", n:"Mastermind",     c:"var(--c3)" },
-  { d:"2026-06-03", n:"Lacrosse",       c:"var(--c4)" },
+  { d:"2026-06-03", n:"Lacrosse Start", c:"var(--c4)" },
+  { d:"2026-07-26", n:"Lacrosse End",   c:"var(--c4)" },
   { d:"2026-09-30", n:"Deadline",       c:"var(--c5)" }
 ];
 
@@ -559,7 +561,7 @@ function monday(dt){ const x=new Date(dt); const k=(x.getDay()+6)%7; x.setDate(x
 
 /* ============================ state ============================ */
 let grain="day";
-let show={chap:true, mile:true, pace:true};
+let show={chap:true, mile:true, pace:true, trend:true};
 let FROM=GOAL.start, TO=GOAL.date;
 
 const inRange = () => SERIES.filter(r => r.d>=FROM && r.d<=TO);
@@ -582,6 +584,20 @@ function nearestAt(dstr){
   let best=null, bd=1e9;
   for(const r of SERIES){ const g=Math.abs(days(r.d,dstr)); if(g<bd){bd=g;best=r;} }
   return { row:best, gap:bd };
+}
+
+/* least-squares fit over the plotted points */
+function trendFit(pts){
+  const n=pts.length;
+  if(n<3) return null;
+  const t0=D(pts[0].d).getTime();
+  const xs=pts.map(p=>(D(p.d).getTime()-t0)/864e5), ys=pts.map(p=>p.v);
+  const mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n;
+  let num=0, den=0;
+  for(let i=0;i<n;i++){ num+=(xs[i]-mx)*(ys[i]-my); den+=(xs[i]-mx)**2; }
+  if(!den) return null;
+  const slope=num/den, b0=my-slope*mx;
+  return { perWk:slope*7, y0:b0, y1:b0+slope*xs[n-1], d0:pts[0].d, d1:pts[n-1].d };
 }
 
 /* ============================ chart ============================ */
@@ -667,7 +683,7 @@ function draw(){
   if(GOAL.weight>=lo && GOAL.weight<=hi){
     const yg=Y(GOAL.weight);
     body+=`<line x1="${M.l}" y1="${yg}" x2="${M.l+PW}" y2="${yg}" stroke="var(--c5)" stroke-width="2" stroke-dasharray="2 6" opacity=".75"/>`;
-    foot+=`<text x="${M.l+PW}" y="${yg-9}" text-anchor="end" font-size="12" font-weight="600" fill="var(--c5)">200 lb</text>`;
+    foot+=`<text x="${M.l+PW}" y="${yg-9}" text-anchor="end" font-size="12" font-weight="600" fill="var(--c5)" stroke="var(--panel)" stroke-width="4.5" paint-order="stroke" stroke-linejoin="round">200 lb</text>`;
   }
   if(paceOn){
     const lx=X(D(LAST.d).getTime()), ly=Y(LAST.w);
@@ -686,6 +702,19 @@ function draw(){
   P.forEach(q=>{ body+=`<circle cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="${r}" fill="var(--panel)" stroke="var(--c1)" stroke-width="1.7"/>`; });
   const l=P[P.length-1];
   body+=`<circle cx="${l.x}" cy="${l.y}" r="6" fill="var(--c1)"/><circle cx="${l.x}" cy="${l.y}" r="12" fill="var(--c1)" opacity=".2"/>`;
+
+  /* trend line */
+  if(show.trend){
+    const tr=trendFit(pts);
+    if(tr){
+      const up=tr.perWk>0, col=up?"var(--bad)":"var(--good)";
+      const ta=X(D(tr.d0).getTime()), tb=X(D(tr.d1).getTime());
+      body+=`<line x1="${ta}" y1="${Y(tr.y0)}" x2="${tb}" y2="${Y(tr.y1)}" stroke="${col}" stroke-width="2.6" stroke-dasharray="9 6" stroke-linecap="round" opacity=".95"/>`;
+      /* park the label in the corner the trend leaves empty */
+      const lx = up ? M.l+12 : M.l+PW-12;
+      body+=`<text x="${lx}" y="${M.t+36}" text-anchor="${up?"start":"end"}" font-size="12.5" font-weight="600" fill="${col}" stroke="var(--panel)" stroke-width="4.5" paint-order="stroke" stroke-linejoin="round">${sgn(tr.perWk)} lb/wk trend</text>`;
+    }
+  }
 
   /* milestones */
   if(show.mile){
@@ -978,7 +1007,7 @@ document.querySelectorAll("#grain button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("#grain button").forEach(x=>x.classList.toggle("on",x===b));
   draw();
 });
-[["tChap","chap"],["tMile","mile"],["tPace","pace"]].forEach(([id,k])=>{
+[["tChap","chap"],["tMile","mile"],["tPace","pace"],["tTrend","trend"]].forEach(([id,k])=>{
   document.getElementById(id).onclick=()=>{
     show[k]=!show[k];
     document.getElementById(id).classList.toggle("on",show[k]);
