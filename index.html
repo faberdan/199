@@ -9,14 +9,14 @@
   --bg:#f7f7f9; --panel:#ffffff; --ink:#16161a; --ink2:#5a5a66; --ink3:#8b8b98;
   --line:#e6e6ec; --line2:#f0f0f4; --shadow:0 1px 3px rgba(20,20,35,.06),0 8px 28px rgba(20,20,35,.06);
   --nav:#ffffff; --navink:#3a3a46; --navactive:#f2f0ff;
-  --c1:#4f46e5; --c2:#e11d48; --c3:#d97706; --c4:#0d9488; --c5:#7c3aed;
+  --c1:#4f46e5; --c2:#e11d48; --c3:#d97706; --c4:#0d9488; --c5:#7c3aed; --c6:#c026d3;
   --good:#059669; --bad:#dc2626; --grid:#eeeef3; --tip:#16161a; --tipink:#ffffff;
 }
 [data-theme="dark"]{
   --bg:#0e0e13; --panel:#17171f; --ink:#f2f2f7; --ink2:#a5a5b4; --ink3:#71717f;
   --line:#26262f; --line2:#1e1e26; --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
   --nav:#14141b; --navink:#c8c8d4; --navactive:#221f3d;
-  --c1:#818cf8; --c2:#fb7185; --c3:#fbbf24; --c4:#2dd4bf; --c5:#a78bfa;
+  --c1:#818cf8; --c2:#fb7185; --c3:#fbbf24; --c4:#2dd4bf; --c5:#a78bfa; --c6:#e879f9;
   --good:#34d399; --bad:#f87171; --grid:#23232c; --tip:#f2f2f7; --tipink:#0e0e13;
 }
 *{box-sizing:border-box}
@@ -60,7 +60,7 @@ body.collapsed .navbtn span{display:none}
 .subbtn{display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px 10px 15px;
   border-radius:10px;color:var(--ink2);font-size:13px;font-weight:500;
   white-space:nowrap;text-align:left;font-variant-numeric:tabular-nums}
-.subbtn .num{width:21px;height:21px;flex:0 0 21px;border-radius:6px;font-style:normal;
+.subbtn .num{min-width:21px;height:21px;flex:0 0 auto;padding:0 5px;border-radius:6px;font-style:normal;
   background:color-mix(in srgb,var(--cc) 15%,transparent);color:var(--cc);
   font-size:11.5px;font-weight:700;display:grid;place-items:center}
 .subbtn:hover{background:var(--line2)}
@@ -537,6 +537,7 @@ const CHAPS = [
   { n:"Surgery and recovery",   s:"Surgery",    a:"2026-03-01", b:"2026-04-27", c:"var(--c2)" },
   { n:"Mastermind to lacrosse", s:"Mastermind", a:"2026-04-27", b:"2026-06-03", c:"var(--c3)" },
   { n:"Lacrosse season",        s:"Lacrosse",   a:"2026-06-03", b:"",           c:"var(--c4)" },
+  { n:"Below 200",              s:"Below 200",  a:"2026-02-14", b:"2026-02-28", c:"var(--c6)", inset:true, chip:"199" },
   { n:"Run to September 30",    s:"The run",    a:"",           b:"2026-09-30", c:"var(--c5)", future:true }
 ];
 
@@ -637,6 +638,7 @@ function draw(){
   /* chapter bands (clipped) with labels clamped to the visible plot */
   if(show.chap){
     CHAPS.forEach(ch=>{
+      if(ch.inset) return;
       const a=ch.a||LAST.d, b=ch.b||LAST.d;
       if(b<FROM||a>TO) return;
       const xa=X(D(a).getTime()), xb=X(D(b).getTime());
@@ -787,11 +789,13 @@ iTo.onchange=()=>{ const t=clampDate(iTo.value||GOAL.date); setRange(t<FROM?t:FR
 
 /* ============================ sidebar chapter views ============================ */
 function chapNav(){
+  let seq=0;
   document.getElementById("chapnav").innerHTML =
-    CHAPS.filter(c=>!c.future).map((ch,i)=>{
+    CHAPS.filter(c=>!c.future).map(ch=>{
       const a=ch.a||LAST.d, b=ch.b||LAST.d;
+      if(!ch.inset) seq++;
       return `<button class="subbtn" data-a="${a}" data-b="${b}" style="--cc:${ch.c}">
-        <i class="num">${i+1}</i><span>${fmt(a)} - ${fmt(b)}</span></button>`;
+        <i class="num">${ch.chip||seq}</i><span>${fmt(a)} - ${fmt(b)}</span></button>`;
     }).join("");
   document.querySelectorAll(".subbtn").forEach(el=>el.onclick=()=>{
     setRange(el.dataset.a, el.dataset.b, null);
