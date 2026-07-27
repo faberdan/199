@@ -172,10 +172,6 @@ tr:last-child td{border-bottom:none}
 .dt input{font:inherit;font-size:14px;font-weight:500;letter-spacing:0;text-transform:none;
   color:var(--ink);background:none;border:none;outline:none;padding:4px 2px;color-scheme:light}
 [data-theme="dark"] .dt input{color-scheme:dark}
-.rsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:14px;
-  padding:14px 16px 8px;border-top:1px solid var(--line2);margin-top:6px}
-.rsum div .k{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3)}
-.rsum div .v{font-size:18px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:2px}
 .chap{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
 .chap:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(20,20,35,.07),0 14px 34px rgba(20,20,35,.09)}
 .chap .see{font-size:12.5px;font-weight:600;color:var(--cc);opacity:.75;margin-top:12px}
@@ -211,7 +207,7 @@ tr:last-child td{border-bottom:none}
 <!-- CHART -->
 <section class="view on" id="v-chart">
   <p class="eyebrow">Dan Faber</p>
-  <h1>Weight</h1>
+  <h1 id="charttitle">Weight</h1>
   <div class="stats" id="topstats"></div>
   <div class="controls">
     <div class="seg" id="grain">
@@ -235,7 +231,6 @@ tr:last-child td{border-bottom:none}
   <div class="chartbox">
     <svg id="svg" viewBox="0 0 1000 460" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="tip" id="tip"></div>
-    <div class="rsum" id="rsum"></div>
   </div>
 </section>
 
@@ -603,7 +598,7 @@ function draw(){
 
   if(!pts.length){
     svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="15" fill="var(--ink3)">No weigh-ins in this range</text>`;
-    document.getElementById("rsum").innerHTML=""; PLOT=[]; return;
+    PLOT=[]; return;
   }
 
   /* y domain — pull in the 200 line only when it matters to this window */
@@ -710,24 +705,6 @@ function draw(){
 
   svg.innerHTML = head + `<g clip-path="url(#clip)">${body}</g>` + foot;
   wireHover();
-  rangeSummary();
-}
-
-function rangeSummary(){
-  const rows=inRange(), el=document.getElementById("rsum");
-  if(!rows.length){ el.innerHTML=""; return; }
-  const a=rows[0], b=rows[rows.length-1];
-  const chg=b.w-a.w, dl=Math.max(1,days(a.d,b.d));
-  const lo=rows.reduce((x,y)=>y.w<x.w?y:x), hi=rows.reduce((x,y)=>y.w>x.w?y:x);
-  const col = chg<0?"var(--good)":chg>0?"var(--bad)":"inherit";
-  el.innerHTML=`
-    <div><div class="k">Window</div><div class="v" style="font-size:14px">${fmt(a.d)} — ${fmt(b.d)}</div></div>
-    <div><div class="k">Start</div><div class="v">${n1(a.w)}</div></div>
-    <div><div class="k">End</div><div class="v">${n1(b.w)}</div></div>
-    <div><div class="k">Change</div><div class="v" style="color:${col}">${sgn(chg)}</div></div>
-    <div><div class="k">Per week</div><div class="v" style="color:${col}">${sgn(chg/(dl/7))}</div></div>
-    <div><div class="k">Range</div><div class="v" style="font-size:15px">${n1(lo.w)}–${n1(hi.w)}</div></div>
-    <div><div class="k">Weigh-ins</div><div class="v">${rows.length}</div></div>`;
 }
 
 function wireHover(){
@@ -768,7 +745,7 @@ function setRange(f,t,preset){
   iFrom.value=FROM; iTo.value=TO;
   document.querySelectorAll("#preset button").forEach(b=>b.classList.toggle("on", b.dataset.p===preset));
   syncChapNav();
-  draw(); datatable();
+  topStats(); draw(); datatable();
 }
 document.querySelectorAll("#preset button").forEach(b=>b.onclick=()=>{
   const p=b.dataset.p;
@@ -799,13 +776,26 @@ function syncChapNav(){
 }
 
 /* ============================ top stats ============================ */
+/* every card reads off the selected window, not the whole project */
 function topStats(){
-  const lost=GOAL.startWeight-LAST.w, togo=LAST.w-GOAL.weight;
-  const low=SERIES.reduce((a,b)=>b.w<a.w?b:a);
-  document.getElementById("topstats").innerHTML=`
-    <div class="stat"><div class="k">Now</div><div class="v">${n1(LAST.w)}</div><div class="s">${fmtY(LAST.d)}</div></div>
-    <div class="stat"><div class="k">Start</div><div class="v">${n1(GOAL.startWeight)}</div><div class="s">${fmtY(GOAL.start)}</div></div>
-    <div class="stat"><div class="k">Lost</div><div class="v" style="color:var(--good)">${n1(lost)}</div><div class="s">${n1(lost/GOAL.startWeight*100)}% of start</div></div>
+  const rows=inRange(), el=document.getElementById("topstats");
+  const chap=CHAPS.filter(c=>!c.future).find(c=>(c.a||LAST.d)===FROM && (c.b||LAST.d)===TO);
+  document.getElementById("charttitle").textContent = chap ? chap.n : "Weight";
+
+  if(!rows.length){
+    el.innerHTML=`<div class="stat"><div class="k">Weigh-ins</div><div class="v">0</div><div class="s">none in this range</div></div>`;
+    return;
+  }
+  const a=rows[0], b=rows[rows.length-1];
+  const chg=b.w-a.w, dl=Math.max(1,days(a.d,b.d));
+  const low=rows.reduce((x,y)=>y.w<x.w?y:x);
+  const togo=b.w-GOAL.weight;
+  const live=TO>=LAST.d;
+  const col = chg<0?"var(--good)":chg>0?"var(--bad)":"var(--ink)";
+  el.innerHTML=`
+    <div class="stat"><div class="k">${live?"Now":"End"}</div><div class="v">${n1(b.w)}</div><div class="s">${fmtY(b.d)}</div></div>
+    <div class="stat"><div class="k">Start</div><div class="v">${n1(a.w)}</div><div class="s">${fmtY(a.d)}</div></div>
+    <div class="stat"><div class="k">${chg<=0?"Lost":"Gained"}</div><div class="v" style="color:${col}">${n1(Math.abs(chg))}</div><div class="s">${sgn(chg/(dl/7))} lb per week</div></div>
     <div class="stat"><div class="k">To 200</div><div class="v" style="color:${togo>0?"var(--c5)":"var(--good)"}">${n1(Math.abs(togo))}</div><div class="s">${togo>0?"still to lose":"under goal"}</div></div>
     <div class="stat"><div class="k">Lowest</div><div class="v">${n1(low.w)}</div><div class="s">${fmtY(low.d)}</div></div>`;
 }
